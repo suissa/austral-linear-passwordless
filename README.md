@@ -38,3 +38,9 @@ A arquitetura Aurora foi adicionada como contratos Austral para manter a semânt
 ### Fronteira com runtimes externos
 
 Em produção, os tipos lineares de Aurora devem ser ligados a NIF Resources, buffers travados e primitivas de zeroização segura. Neste repositório, essa fronteira está expressa somente em Austral: o objetivo é garantir que a máquina de estados de segurança não permita duplicar, esquecer ou serializar segredos em texto claro.
+
+## Página single-file Passkey DPoP
+
+A demonstração `public/passkey-dpop.html` contém HTML, CSS e JavaScript puros no mesmo arquivo. Ela registra uma passkey WebAuthn real quando disponível, usa um adaptador virtual para ambientes de teste e, depois do registro, cria um token DPoP assinado por uma assertion WebAuthn vinculada ao `credentialId` da passkey.
+
+A própria página inclui botões para executar testes unitários, BDD e E2E sem dependências externas. Para validação em ambiente sem navegador, o script embutido pode ser extraído e executado com Node usando o adaptador virtual.
