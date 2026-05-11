@@ -1,0 +1,81 @@
+import Austral.Passwordless.WebAuthn.Core (
+    RelyingParty,
+    UserIdentity,
+    CredentialDescriptor,
+    RegistrationClientResponse,
+    AuthenticationClientResponse,
+    StoredCredential,
+    VerificationResult,
+    PublicKeyCredentialCreationOptions,
+    PublicKeyCredentialRequestOptions,
+    Challenge,
+    RegistrationCeremony,
+    AuthenticationCeremony,
+    newChallenge,
+    beginRegistration,
+    registrationOptions,
+    finishRegistration,
+    cancelRegistration,
+    beginAuthentication,
+    authenticationOptions,
+    finishAuthentication,
+    cancelAuthentication
+);
+
+module body Austral.Passwordless.WebAuthn.Backend is
+    record ChallengeEntropy: Linear is
+        seedBase64Url: String;
+        counter: Nat64;
+    end;
+
+    function newEntropy(seedBase64Url: String): ChallengeEntropy is
+        return ChallengeEntropy(seedBase64Url => seedBase64Url, counter => 0);
+    end;
+
+    function releaseEntropy(entropy: ChallengeEntropy): Unit is
+        let { seedBase64Url: String, counter: Nat64 } := entropy;
+        return nil;
+    end;
+
+    function issueRegistration(entropy: ChallengeEntropy, rp: RelyingParty, user: UserIdentity): RegistrationStart is
+        let { seedBase64Url: String, counter: Nat64 } := entropy;
+        let challenge: Challenge := newChallenge(seedBase64Url);
+        let ceremony: RegistrationCeremony := beginRegistration(challenge, rp, user);
+        let options: PublicKeyCredentialCreationOptions := registrationOptions(&ceremony);
+        let nextEntropy: ChallengeEntropy := ChallengeEntropy(seedBase64Url => seedBase64Url, counter => counter + 1);
+        return RegistrationStart(entropy => nextEntropy, ceremony => ceremony, options => options);
+    end;
+
+    function completeRegistration(start: RegistrationStart, response: RegistrationClientResponse): VerificationResult is
+        let { entropy: ChallengeEntropy, ceremony: RegistrationCeremony, options: PublicKeyCredentialCreationOptions } := start;
+        releaseEntropy(entropy);
+        return finishRegistration(ceremony, response);
+    end;
+
+    function abandonRegistration(start: RegistrationStart): ChallengeEntropy is
+        let { entropy: ChallengeEntropy, ceremony: RegistrationCeremony, options: PublicKeyCredentialCreationOptions } := start;
+        cancelRegistration(ceremony);
+        return entropy;
+    end;
+
+    function issueAuthentication(entropy: ChallengeEntropy, rp: RelyingParty, descriptor: CredentialDescriptor): AuthenticationStart is
+        let { seedBase64Url: String, counter: Nat64 } := entropy;
+        let challenge: Challenge := newChallenge(seedBase64Url);
+        let ceremony: AuthenticationCeremony := beginAuthentication(challenge, rp, descriptor);
+        let options: PublicKeyCredentialRequestOptions := authenticationOptions(&ceremony);
+        let nextEntropy: ChallengeEntropy := ChallengeEntropy(seedBase64Url => seedBase64Url, counter => counter + 1);
+        return AuthenticationStart(entropy => nextEntropy, ceremony => ceremony, options => options);
+    end;
+
+    function completeAuthentication(start: AuthenticationStart, credential: StoredCredential, response: AuthenticationClientResponse): VerificationResult is
+        let { entropy: ChallengeEntropy, ceremony: AuthenticationCeremony, options: PublicKeyCredentialRequestOptions } := start;
+        releaseEntropy(entropy);
+        return finishAuthentication(ceremony, credential, response);
+    end;
+
+    function abandonAuthentication(start: AuthenticationStart): ChallengeEntropy is
+        let { entropy: ChallengeEntropy, ceremony: AuthenticationCeremony, options: PublicKeyCredentialRequestOptions } := start;
+        cancelAuthentication(ceremony);
+        return entropy;
+    end;
+end module body.

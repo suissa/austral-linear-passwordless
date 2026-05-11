@@ -1,0 +1,92 @@
+module Austral.Passwordless.WebAuthn.Core is
+    """
+    Core WebAuthn data model expressed in Austral.
+
+    The challenge and ceremonies are linear so callers must either finish or
+    cancel each login/registration attempt exactly once.
+    """
+
+    record RelyingParty: Free is
+        id: String;
+        name: String;
+        origin: String;
+    end;
+
+    record UserIdentity: Free is
+        id: String;
+        name: String;
+        displayName: String;
+    end;
+
+    record CredentialDescriptor: Free is
+        id: String;
+        transports: String;
+    end;
+
+    record PublicKeyCredentialCreationOptions: Free is
+        challenge: String;
+        relyingPartyId: String;
+        relyingPartyName: String;
+        userId: String;
+        userName: String;
+        userDisplayName: String;
+        timeoutMilliseconds: Nat64;
+        attestation: String;
+        authenticatorSelection: String;
+    end;
+
+    record PublicKeyCredentialRequestOptions: Free is
+        challenge: String;
+        relyingPartyId: String;
+        timeoutMilliseconds: Nat64;
+        allowCredentialId: String;
+        userVerification: String;
+    end;
+
+    record RegistrationClientResponse: Free is
+        credentialId: String;
+        clientDataJson: String;
+        attestationObject: String;
+    end;
+
+    record AuthenticationClientResponse: Free is
+        credentialId: String;
+        clientDataJson: String;
+        authenticatorData: String;
+        signature: String;
+        userHandle: String;
+    end;
+
+    record StoredCredential: Free is
+        credentialId: String;
+        publicKeyCose: String;
+        signCount: Nat64;
+        userId: String;
+    end;
+
+    union VerificationResult: Free is
+        case Accepted is
+            credential: StoredCredential;
+        case Rejected is
+            reason: String;
+    end;
+
+    type Challenge: Linear;
+    type RegistrationCeremony: Linear;
+    type AuthenticationCeremony: Linear;
+
+    function newChallenge(bytesBase64Url: String): Challenge;
+    function exposeChallenge(challenge: Challenge): String;
+
+    function beginRegistration(challenge: Challenge, rp: RelyingParty, user: UserIdentity): RegistrationCeremony;
+    generic [R: Region]
+    function registrationOptions(ceremony: &[RegistrationCeremony, R]): PublicKeyCredentialCreationOptions;
+    function finishRegistration(ceremony: RegistrationCeremony, response: RegistrationClientResponse): VerificationResult;
+    function cancelRegistration(ceremony: RegistrationCeremony): Unit;
+
+    function beginAuthentication(challenge: Challenge, rp: RelyingParty, descriptor: CredentialDescriptor): AuthenticationCeremony;
+    generic [R: Region]
+    function authenticationOptions(ceremony: &[AuthenticationCeremony, R]): PublicKeyCredentialRequestOptions;
+    function finishAuthentication(ceremony: AuthenticationCeremony, credential: StoredCredential, response: AuthenticationClientResponse): VerificationResult;
+    function cancelAuthentication(ceremony: AuthenticationCeremony): Unit;
+end module.

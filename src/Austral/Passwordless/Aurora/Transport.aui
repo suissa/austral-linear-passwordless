@@ -1,0 +1,38 @@
+import Austral.Passwordless.Aurora.Identity (
+    AgentManifest,
+    Attestation,
+    EncryptedSecretGrant
+);
+
+module Austral.Passwordless.Aurora.Transport is
+    """
+    NATS request/reply envelope model for Aurora Zeroize.
+
+    Transport payloads contain manifests, attestations, public keys and encrypted
+    grants only. Plaintext secrets are not representable in this module.
+    """
+
+    record Subject: Free is
+        name: String;
+    end;
+
+    record ReplyInbox: Free is
+        name: String;
+    end;
+
+    record IdentityRequest: Free is
+        subject: Subject;
+        replyTo: ReplyInbox;
+        manifest: AgentManifest;
+        attestation: Attestation;
+    end;
+
+    type PendingRequest: Linear;
+    type ManagerReply: Linear;
+
+    function identitySubject(): Subject;
+    function buildRequest(replyTo: ReplyInbox, manifest: AgentManifest, attestation: Attestation): PendingRequest;
+    function publishRequest(request: PendingRequest): IdentityRequest;
+    function encryptedReply(replyTo: ReplyInbox, grant: EncryptedSecretGrant): ManagerReply;
+    function consumeReply(reply: ManagerReply): EncryptedSecretGrant;
+end module.

@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aurora Passkey DPoP</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09111f;
+      --panel: #101c30;
+      --panel-2: #16243b;
+      --accent: #73fbd3;
+      --accent-2: #8da2fb;
+      --danger: #ff7a90;
+      --ok: #79ffa7;
+      --text: #edf5ff;
+      --muted: #aab8cc;
+      --border: rgba(255, 255, 255, 0.13);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(115, 251, 211, 0.24), transparent 32rem),
+        radial-gradient(circle at bottom right, rgba(141, 162, 251, 0.22), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(16, 28, 48, 0.92), rgba(9, 17, 31, 0.88));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+      padding: 28px;
+      backdrop-filter: blur(18px);
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.2rem, 6vw, 5.2rem);
+      line-height: 0.92;
+      letter-spacing: -0.08em;
+    }
+
+    h2 { margin: 0 0 16px; }
+
+    p { color: var(--muted); line-height: 1.7; }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0; }
+
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--accent);
+      background: rgba(115, 251, 211, 0.08);
+      padding: 8px 12px;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+
+    label { display: grid; gap: 8px; color: var(--muted); font-size: 0.9rem; }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    textarea { min-height: 150px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      cursor: pointer;
+      font-weight: 800;
+      padding: 13px 16px;
+      color: #06111d;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 14px 34px rgba(115, 251, 211, 0.18);
+    }
+
+    button.secondary {
+      color: var(--text);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: none;
+    }
+
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+
+    .status {
+      display: grid;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .status-item {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 14px;
+    }
+
+    .status-item strong { display: block; margin-bottom: 6px; }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .ok { color: var(--ok); }
+    .fail { color: var(--danger); }
+
+    .test-results { display: grid; gap: 10px; margin-top: 14px; }
+
+    .test-line {
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+    }
+
+    @media (max-width: 860px) {
+      .hero, .grid { grid-template-columns: 1fr; }
+      main { padding: 24px 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="card">
+        <p class="pill">Passkey → WebAuthn assertion → token DPoP</p>
+        <h1>Aurora Passkey DPoP</h1>
+        <p>
+          Página única com HTML, CSS e JavaScript puros para registrar uma passkey,
+          gerar um token DPoP vinculado à credencial WebAuthn e executar testes
+          Unitários, BDD e E2E sem bibliotecas externas.
+        </p>
+        <div class="pill-row">
+          <span class="pill">Sem framework</span>
+          <span class="pill">WebAuthn real</span>
+          <span class="pill">Modo virtual para testes</span>
+          <span class="pill">DPoP baseado na passkey</span>
+        </div>
+
+        <div class="grid">
+          <label>
+            Nome do usuário
+            <input id="userName" value="agente@aurora.local" autocomplete="username">
+          </label>
+          <label>
+            Modo
+            <select id="mode">
+              <option value="auto">Auto: WebAuthn real se disponível</option>
+              <option value="virtual">Virtual: deterministicamente testável</option>
+            </select>
+          </label>
+          <label>
+            Método HTTP
+            <input id="httpMethod" value="POST">
+          </label>
+          <label>
+            URL protegida
+            <input id="httpUrl" value="https://api.aurora.local/identity/mount">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="registerBtn">1. Gerar passkey</button>
+          <button id="dpopBtn">2. Criar token DPoP</button>
+          <button id="copyBtn" class="secondary">Copiar token</button>
+        </div>
+      </div>
+
+      <aside class="card">
+        <h2>Estado</h2>
+        <div class="status">
+          <div class="status-item">
+            <strong>Credencial</strong>
+            <code id="credentialId">nenhuma passkey gerada</code>
+          </div>
+          <div class="status-item">
+            <strong>Fluxo</strong>
+            <code id="flowState">aguardando registro</code>
+          </div>
+          <div class="status-item">
+            <strong>Propriedade DPoP</strong>
+            <code id="dpopSummary">o token ainda não existe</code>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>Token DPoP</h2>
+      <textarea id="tokenOutput" readonly placeholder="O token DPoP aparecerá aqui após a geração da passkey."></textarea>
+    </section>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>Testes Unitários, BDD e E2E</h2>
+      <p>
+        Os testes usam o adaptador virtual de passkey para validar o fluxo completo
+        sem depender de hardware, HTTPS ou automação externa. Abra esta página e clique
+        em executar; ou chame <code>AuroraPasskeyDPoP.runAllTests()</code> no console.
+      </p>
+      <div class="actions">
+        <button id="runUnitBtn" class="secondary">Unitários</button>
+        <button id="runBddBtn" class="secondary">BDD</button>
+        <button id="runE2eBtn" class="secondary">E2E</button>
+        <button id="runAllBtn">Todos</button>
+      </div>
+      <div id="testResults" class="test-results" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    (function (root) {
+      'use strict';
+
+      const subtle = () => root.crypto && root.crypto.subtle;
+      const textEncoder = new TextEncoder();
+      const textDecoder = new TextDecoder();
+
+      const state = {
+        credentialId: '',
+        userId: '',
+        lastRegistration: null,
+        dpopToken: '',
+        dpopEnvelope: null,
+        flow: 'idle',
+        currentAdapter: null
+      };
+
+      function randomBytes(length) {
+        const bytes = new Uint8Array(length);
+        root.crypto.getRandomValues(bytes);
+        return bytes;
+      }
+
+      function base64UrlEncode(input) {
+        const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        const base64 = btoa(binary);
+        return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      }
+
+      function base64UrlDecode(value) {
+        const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((value.length + 3) % 4);
+        const binary = atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+        return bytes;
+      }
+
+      function jsonBase64Url(value) {
+        return base64UrlEncode(textEncoder.encode(JSON.stringify(value)));
+      }
+
+      function parseJwt(token) {
+        const parts = token.split('.');
+        if (parts.length !== 3) throw new Error('Token DPoP deve ter três partes');
+        return {
+          header: JSON.parse(textDecoder.decode(base64UrlDecode(parts[0]))),
+          payload: JSON.parse(textDecoder.decode(base64UrlDecode(parts[1]))),
+          signature: parts[2]
+        };
+      }
+
+      async function sha256Bytes(value) {
+        const bytes = typeof value === 'string' ? textEncoder.encode(value) : value;
+        return new Uint8Array(await subtle().digest('SHA-256', bytes));
+      }
+
+      function uuid() {
+        if (root.crypto.randomUUID) return root.crypto.randomUUID();
+        const bytes = randomBytes(16);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      }
+
+      function concatBytes(left, right) {
+        const out = new Uint8Array(left.length + right.length);
+        out.set(left, 0);
+        out.set(right, left.length);
+        return out;
+      }
+
+      function registrationOptions(userName) {
+        const userId = randomBytes(16);
+        return {
+          publicKey: {
+            challenge: randomBytes(32),
+            rp: { name: 'Aurora Passwordless', id: root.location && root.location.hostname ? root.location.hostname : 'localhost' },
+            user: { id: userId, name: userName, displayName: userName },
+            pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+            authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+            timeout: 60000,
+            attestation: 'none'
+          },
+          userId: base64UrlEncode(userId)
+        };
+      }
+
+      function realWebAuthnAdapter() {
+        return {
+          name: 'real-webauthn',
+          async create(options) {
+            if (!root.navigator || !root.navigator.credentials || !root.PublicKeyCredential) {
+              throw new Error('WebAuthn não está disponível neste navegador/contexto');
+            }
+            return root.navigator.credentials.create({ publicKey: options.publicKey });
+          },
+          async get(options) {
+            if (!root.navigator || !root.navigator.credentials || !root.PublicKeyCredential) {
+              throw new Error('WebAuthn não está disponível neste navegador/contexto');
+            }
+            return root.navigator.credentials.get({ publicKey: options.publicKey });
+          }
+        };
+      }
+
+      function virtualPasskeyAdapter() {
+        const vault = { credentialId: '', keyPair: null };
+        return {
+          name: 'virtual-passkey',
+          async create(options) {
+            vault.keyPair = await subtle().generateKey(
+              { name: 'ECDSA', namedCurve: 'P-256' },
+              false,
+              ['sign', 'verify']
+            );
+            const credentialIdBytes = randomBytes(32);
+            vault.credentialId = base64UrlEncode(credentialIdBytes);
+            return {
+              id: vault.credentialId,
+              rawId: credentialIdBytes,
+              type: 'public-key',
+              response: {
+                clientDataJSON: textEncoder.encode(JSON.stringify({ type: 'webauthn.create', challenge: base64UrlEncode(options.publicKey.challenge), origin: 'virtual://aurora' })),
+                attestationObject: textEncoder.encode('virtual-attestation')
+              }
+            };
+          },
+          async get(options) {
+            if (!vault.keyPair || !vault.credentialId) throw new Error('Passkey virtual ainda não foi gerada');
+            const challenge = options.publicKey.challenge;
+            const clientDataJSON = textEncoder.encode(JSON.stringify({ type: 'webauthn.get', challenge: base64UrlEncode(challenge), origin: 'virtual://aurora' }));
+            const authenticatorData = textEncoder.encode(`virtual-authenticator:${vault.credentialId}`);
+            const clientHash = await sha256Bytes(clientDataJSON);
+            const signedBytes = concatBytes(authenticatorData, clientHash);
+            const signature = new Uint8Array(await subtle().sign({ name: 'ECDSA', hash: 'SHA-256' }, vault.keyPair.privateKey, signedBytes));
+            return {
+              id: vault.credentialId,
+              rawId: base64UrlDecode(vault.credentialId),
+              type: 'public-key',
+              response: {
+                clientDataJSON,
+                authenticatorData,
+                signature,
+                userHandle: textEncoder.encode('virtual-user')
+              }
+            };
+          }
+        };
+      }
+
+      function selectAdapter(mode) {
+        if (mode === 'virtual') return virtualPasskeyAdapter();
+        if (root.navigator && root.navigator.credentials && root.PublicKeyCredential) return realWebAuthnAdapter();
+        return virtualPasskeyAdapter();
+      }
+
+      async function registerPasskey({ userName, adapter }) {
+        const selected = adapter || selectAdapter('auto');
+        const options = registrationOptions(userName || 'agente@aurora.local');
+        const credential = await selected.create(options);
+        state.currentAdapter = selected;
+        state.credentialId = credential.id || base64UrlEncode(new Uint8Array(credential.rawId));
+        state.userId = options.userId;
+        state.lastRegistration = {
+          adapter: selected.name,
+          credentialId: state.credentialId,
+          userId: state.userId,
+          createdAt: new Date().toISOString()
+        };
+        state.flow = 'passkey-created';
+        return state.lastRegistration;
+      }
+
+      function dpopSigningInput({ method, url, credentialId, issuedAt, jwtId }) {
+        const header = {
+          typ: 'dpop+jwt',
+          alg: 'WebAuthn-ES256',
+          kid: credentialId,
+          webauthn: true
+        };
+        const payload = {
+          htm: String(method || 'POST').toUpperCase(),
+          htu: String(url || 'https://api.aurora.local/identity/mount'),
+          iat: issuedAt || Math.floor(Date.now() / 1000),
+          jti: jwtId || uuid(),
+          cnf: { kid: credentialId, webauthn: true },
+          passkey_credential_id: credentialId
+        };
+        const encodedHeader = jsonBase64Url(header);
+        const encodedPayload = jsonBase64Url(payload);
+        return { header, payload, encodedHeader, encodedPayload, signingInput: `${encodedHeader}.${encodedPayload}` };
+      }
+
+      async function createDpopToken({ method, url, adapter }) {
+        if (!state.credentialId) throw new Error('Gere a passkey antes de criar o token DPoP');
+        const selected = adapter || state.currentAdapter || selectAdapter('auto');
+        const proof = dpopSigningInput({ method, url, credentialId: state.credentialId });
+        const challenge = await sha256Bytes(proof.signingInput);
+        const assertion = await selected.get({
+          publicKey: {
+            challenge,
+            allowCredentials: [{ type: 'public-key', id: base64UrlDecode(state.credentialId) }],
+            userVerification: 'preferred',
+            timeout: 60000
+          }
+        });
+        const signature = base64UrlEncode(new Uint8Array(assertion.response.signature));
+        state.dpopToken = `${proof.signingInput}.${signature}`;
+        state.dpopEnvelope = {
+          token: state.dpopToken,
+          verification: {
+            kind: 'webauthn-dpop',
+            credentialId: state.credentialId,
+            challenge: base64UrlEncode(challenge),
+            clientDataJSON: base64UrlEncode(new Uint8Array(assertion.response.clientDataJSON)),
+            authenticatorData: base64UrlEncode(new Uint8Array(assertion.response.authenticatorData)),
+            userHandle: assertion.response.userHandle ? base64UrlEncode(new Uint8Array(assertion.response.userHandle)) : ''
+          }
+        };
+        state.flow = 'dpop-created';
+        return state.dpopEnvelope;
+      }
+
+      async function runHappyPath(adapter) {
+        const selected = adapter || virtualPasskeyAdapter();
+        const registration = await registerPasskey({ userName: 'bdd@aurora.local', adapter: selected });
+        const envelope = await createDpopToken({ method: 'POST', url: 'https://api.aurora.local/identity/mount', adapter: selected });
+        return { registration, envelope, parsed: parseJwt(envelope.token) };
+      }
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+
+      async function runUnitTests() {
+        const encoded = base64UrlEncode(textEncoder.encode('aurora-zeroize'));
+        assert(textDecoder.decode(base64UrlDecode(encoded)) === 'aurora-zeroize', 'base64url deve fazer roundtrip');
+        const proof = dpopSigningInput({ method: 'post', url: 'https://example.test/resource', credentialId: 'cred-123', issuedAt: 1, jwtId: 'jti-1' });
+        assert(proof.header.typ === 'dpop+jwt', 'header deve ser DPoP');
+        assert(proof.header.kid === 'cred-123', 'kid deve apontar para a passkey');
+        assert(proof.payload.htm === 'POST', 'método deve ser normalizado');
+        assert(proof.payload.cnf.webauthn === true, 'payload deve declarar confirmação WebAuthn');
+        assert(proof.signingInput.split('.').length === 2, 'signing input deve ter header.payload');
+        return [{ name: 'Unitários: codificação e montagem DPoP', pass: true }];
+      }
+
+      async function runBddTests() {
+        const adapter = virtualPasskeyAdapter();
+        const result = await runHappyPath(adapter);
+        assert(result.registration.credentialId.length > 20, 'Dado um agente, quando gera passkey, então recebe credentialId');
+        assert(result.parsed.payload.passkey_credential_id === result.registration.credentialId, 'Então o DPoP fica vinculado à passkey');
+        assert(result.envelope.verification.kind === 'webauthn-dpop', 'Então o envelope exige verificação WebAuthn');
+        return [{ name: 'BDD: agente gera passkey e recebe DPoP vinculado', pass: true }];
+      }
+
+      async function runE2eTests() {
+        const adapter = virtualPasskeyAdapter();
+        const result = await runHappyPath(adapter);
+        assert(result.envelope.token.split('.').length === 3, 'E2E deve produzir JWT DPoP com três partes');
+        assert(result.parsed.header.alg === 'WebAuthn-ES256', 'E2E deve assinar via assertion WebAuthn/passkey');
+        assert(result.parsed.payload.htu === 'https://api.aurora.local/identity/mount', 'E2E deve preservar URL protegida');
+        return [{ name: 'E2E: registro completo + DPoP baseado na passkey', pass: true }];
+      }
+
+      async function runAllTests() {
+        const groups = [];
+        groups.push(...await runUnitTests());
+        groups.push(...await runBddTests());
+        groups.push(...await runE2eTests());
+        return groups;
+      }
+
+      const api = {
+        state,
+        helpers: { base64UrlEncode, base64UrlDecode, parseJwt, sha256Bytes, dpopSigningInput },
+        adapters: { virtualPasskeyAdapter, realWebAuthnAdapter, selectAdapter },
+        registerPasskey,
+        createDpopToken,
+        runUnitTests,
+        runBddTests,
+        runE2eTests,
+        runAllTests
+      };
+
+      function byId(id) { return root.document && root.document.getElementById(id); }
+
+      function renderState() {
+        const credential = byId('credentialId');
+        const flow = byId('flowState');
+        const summary = byId('dpopSummary');
+        const token = byId('tokenOutput');
+        if (credential) credential.textContent = state.credentialId || 'nenhuma passkey gerada';
+        if (flow) flow.textContent = state.flow;
+        if (summary) summary.textContent = state.dpopEnvelope ? `kid=${state.credentialId} challenge=${state.dpopEnvelope.verification.challenge}` : 'o token ainda não existe';
+        if (token) token.value = state.dpopToken;
+      }
+
+      function renderTests(results, error) {
+        const target = byId('testResults');
+        if (!target) return;
+        if (error) {
+          target.innerHTML = `<div class="test-line fail">❌ ${error.message}</div>`;
+          return;
+        }
+        target.innerHTML = results.map((result) => `<div class="test-line ${result.pass ? 'ok' : 'fail'}">${result.pass ? '✅' : '❌'} ${result.name}</div>`).join('');
+      }
+
+      async function bindButton(id, task) {
+        const button = byId(id);
+        if (!button) return;
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try { await task(); }
+          catch (error) { renderTests([], error); state.flow = `erro: ${error.message}`; }
+          finally { button.disabled = false; renderState(); }
+        });
+      }
+
+      function bootDom() {
+        if (!root.document) return;
+        bindButton('registerBtn', async () => {
+          const mode = byId('mode').value;
+          const adapter = selectAdapter(mode);
+          await registerPasskey({ userName: byId('userName').value, adapter });
+        });
+        bindButton('dpopBtn', async () => {
+          const mode = byId('mode').value;
+          const adapter = state.currentAdapter || selectAdapter(mode);
+          if (mode === 'virtual' && state.lastRegistration && state.lastRegistration.adapter !== 'virtual-passkey') {
+            throw new Error('O modo virtual precisa registrar a passkey virtual antes de criar DPoP');
+          }
+          await createDpopToken({ method: byId('httpMethod').value, url: byId('httpUrl').value, adapter });
+        });
+        bindButton('copyBtn', async () => {
+          if (!state.dpopToken) throw new Error('Não há token para copiar');
+          await root.navigator.clipboard.writeText(state.dpopToken);
+          state.flow = 'token-copied';
+        });
+        bindButton('runUnitBtn', async () => renderTests(await runUnitTests()));
+        bindButton('runBddBtn', async () => renderTests(await runBddTests()));
+        bindButton('runE2eBtn', async () => renderTests(await runE2eTests()));
+        bindButton('runAllBtn', async () => renderTests(await runAllTests()));
+        renderState();
+      }
+
+      root.AuroraPasskeyDPoP = api;
+      if (root.document) {
+        if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', bootDom);
+        else bootDom();
+      }
+    })(typeof globalThis !== 'undefined' ? globalThis : window);
+  </script>
+</body>
+</html>

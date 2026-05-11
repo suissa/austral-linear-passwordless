@@ -1,0 +1,106 @@
+import Austral.Passwordless.Aurora.Memory (
+    ResourceDescriptor,
+    SecretResource,
+    BorrowedSecret,
+    PurgedSecret,
+    PublicResult,
+    importEncryptedResource,
+    purgeSecret
+);
+
+module body Austral.Passwordless.Aurora.Identity is
+    record AuthorizedIdentityGrant: Linear is
+        policy: IdentityPolicy;
+        manifest: AgentManifest;
+        attestation: Attestation;
+        vaultPath: String;
+        badgerPath: String;
+    end;
+
+    record EncryptedSecretGrant: Linear is
+        descriptor: ResourceDescriptor;
+        recipientPublicKey: EphemeralPublicKey;
+    end;
+
+    record AgentActivation: Linear is
+        badgerPath: String;
+        mounted: Bool;
+        secret: BorrowedSecret;
+        publicStatus: PublicResult;
+    end;
+
+    function validateManifest(policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation): AuthorizationDecision is
+        if manifest.agentHash = policy.allowedAgentHash then
+            if manifest.capabilitiesHash = policy.requiredCapabilitiesHash then
+                if manifest.invariantsHash = policy.requiredInvariantsHash then
+                    if attestation.manifestHash = manifest.agentHash then
+                        return Authorized(vaultPath => policy.vaultPath, badgerPath => policy.badgerPath);
+                    else
+                        return Denied(reason => "attestation does not bind the manifest hash");
+                    end if;
+                else
+                    return Denied(reason => "invariant hash is not allowed");
+                end if;
+            else
+                return Denied(reason => "capability hash is not allowed");
+            end if;
+        else
+            return Denied(reason => "agent hash is not allowed");
+        end if;
+    end;
+
+    function issueGrant(policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation): GrantOutcome is
+        let decision: AuthorizationDecision := validateManifest(policy, manifest, attestation);
+        case decision of
+            when Authorized(vaultPath, badgerPath) do
+                return GrantAccepted(grant => AuthorizedIdentityGrant(
+                    policy => policy,
+                    manifest => manifest,
+                    attestation => attestation,
+                    vaultPath => vaultPath,
+                    badgerPath => badgerPath
+                ));
+            when Denied(reason) do
+                return GrantRejected(reason => reason);
+        end case;
+    end;
+
+    function discardRejected(outcome: GrantOutcome): Unit is
+        case outcome of
+            when GrantAccepted(grant) do
+                let { policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation, vaultPath: String, badgerPath: String } := grant;
+                return nil;
+            when GrantRejected(reason) do
+                return nil;
+        end case;
+    end;
+
+    function sealVaultSecret(grant: AuthorizedIdentityGrant, descriptor: ResourceDescriptor): EncryptedSecretGrant is
+        let { policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation, vaultPath: String, badgerPath: String } := grant;
+        return EncryptedSecretGrant(descriptor => descriptor, recipientPublicKey => attestation.publicKey);
+    end;
+
+    function receiveGrant(grant: EncryptedSecretGrant): SecretResource is
+        let { descriptor: ResourceDescriptor, recipientPublicKey: EphemeralPublicKey } := grant;
+        return importEncryptedResource(descriptor);
+    end;
+
+    function activateAgent(secret: BorrowedSecret, badgerPath: String): AgentActivation is
+        return AgentActivation(
+            badgerPath => badgerPath,
+            mounted => true,
+            secret => secret,
+            publicStatus => PublicResult(status => "badger-mounted", detail => badgerPath)
+        );
+    end;
+
+    function purgeActivation(activation: AgentActivation): PurgedSecret is
+        let { badgerPath: String, mounted: Bool, secret: BorrowedSecret, publicStatus: PublicResult } := activation;
+        return purgeSecret(secret);
+    end;
+
+    generic [R: Region]
+    function activationResult(activation: &[AgentActivation, R]): PublicResult is
+        return activation.publicStatus;
+    end;
+end module body.

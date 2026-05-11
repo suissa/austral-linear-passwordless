@@ -1,0 +1,45 @@
+import Austral.Passwordless.Aurora.Memory (
+    BorrowedSecret,
+    PurgedSecret,
+    PublicResult,
+    purgeSecret
+);
+
+module body Austral.Passwordless.Aurora.Storage is
+    record MountSession: Linear is
+        options: BadgerOptions;
+        secret: BorrowedSecret;
+        opened: OpenedBadger;
+        result: PublicResult;
+    end;
+
+    function secureOptions(path: String): BadgerOptions is
+        return BadgerOptions(
+            path => path,
+            chmod => "0700",
+            encryption => "AES-256-GCM",
+            localhostOnly => true
+        );
+    end;
+
+    function mountWithSecret(options: BadgerOptions, secret: BorrowedSecret): MountSession is
+        let opened: OpenedBadger := OpenedBadger(path => options.path, encrypted => true, permissions => options.chmod);
+        let result: PublicResult := PublicResult(status => "mounted", detail => options.path);
+        return MountSession(options => options, secret => secret, opened => opened, result => result);
+    end;
+
+    function finishMount(session: MountSession): PurgedSecret is
+        let { options: BadgerOptions, secret: BorrowedSecret, opened: OpenedBadger, result: PublicResult } := session;
+        return purgeSecret(secret);
+    end;
+
+    generic [R: Region]
+    function openedDatabase(session: &[MountSession, R]): OpenedBadger is
+        return session.opened;
+    end;
+
+    generic [R: Region]
+    function mountResult(session: &[MountSession, R]): PublicResult is
+        return session.result;
+    end;
+end module body.
