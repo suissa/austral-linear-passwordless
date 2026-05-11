@@ -1,0 +1,89 @@
+import Austral.Passwordless.Aurora.Memory (
+    ResourceDescriptor,
+    SecretResource,
+    BorrowedSecret,
+    PurgedSecret,
+    PublicResult
+);
+
+module Austral.Passwordless.Aurora.Identity is
+    """
+    Identity-manager contract for Aurora Zeroize.
+
+    Agents never call the vault directly. They send an attested manifest through
+    request/reply transport, and the identity manager returns only an encrypted
+    resource descriptor that can be opened by the memory module.
+    """
+
+    record Capability: Free is
+        name: String;
+        scope: String;
+    end;
+
+    record Invariant: Free is
+        name: String;
+        expressionHash: String;
+    end;
+
+    record AgentManifest: Free is
+        agentName: String;
+        agentHash: String;
+        capabilitiesHash: String;
+        invariantsHash: String;
+        machineIdHash: String;
+    end;
+
+    record Nonce: Free is
+        value: String;
+        issuedBy: String;
+    end;
+
+    record EphemeralPublicKey: Free is
+        algorithm: String;
+        bytesBase64Url: String;
+    end;
+
+    record Attestation: Free is
+        manifestHash: String;
+        nonce: Nonce;
+        signature: String;
+        publicKey: EphemeralPublicKey;
+    end;
+
+    record IdentityPolicy: Free is
+        allowedAgentHash: String;
+        requiredCapabilitiesHash: String;
+        requiredInvariantsHash: String;
+        vaultPath: String;
+        badgerPath: String;
+    end;
+
+    union AuthorizationDecision: Free is
+        case Authorized is
+            vaultPath: String;
+            badgerPath: String;
+        case Denied is
+            reason: String;
+    end;
+
+    type AuthorizedIdentityGrant: Linear;
+    type EncryptedSecretGrant: Linear;
+    type AgentActivation: Linear;
+
+    union GrantOutcome: Linear is
+        case GrantAccepted is
+            grant: AuthorizedIdentityGrant;
+        case GrantRejected is
+            reason: String;
+    end;
+
+    function validateManifest(policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation): AuthorizationDecision;
+    function issueGrant(policy: IdentityPolicy, manifest: AgentManifest, attestation: Attestation): GrantOutcome;
+    function discardRejected(outcome: GrantOutcome): Unit;
+    function sealVaultSecret(grant: AuthorizedIdentityGrant, descriptor: ResourceDescriptor): EncryptedSecretGrant;
+    function receiveGrant(grant: EncryptedSecretGrant): SecretResource;
+    function activateAgent(secret: BorrowedSecret, badgerPath: String): AgentActivation;
+    function purgeActivation(activation: AgentActivation): PurgedSecret;
+    generic [R: Region]
+    function activationResult(activation: &[AgentActivation, R]): PublicResult;
+end module.
