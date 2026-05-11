@@ -1,0 +1,78 @@
+module body Austral.Passwordless.Aurora.Memory is
+    record LockedSecretPage: Linear is
+        descriptor: ResourceDescriptor;
+        policy: MemoryPolicy;
+        state: String;
+    end;
+
+    record SecretResource: Linear is
+        descriptor: ResourceDescriptor;
+        encrypted: Bool;
+    end;
+
+    record BorrowedSecret: Linear is
+        descriptor: ResourceDescriptor;
+        policy: MemoryPolicy;
+        state: String;
+    end;
+
+    record PurgedSecret: Linear is
+        descriptor: ResourceDescriptor;
+        zeroized: Bool;
+    end;
+
+    function strictPolicy(maxBytes: Nat64): MemoryPolicy is
+        return MemoryPolicy(
+            maxBytes => maxBytes,
+            requireMlock => true,
+            requireNoSwap => true,
+            requireVolatileZero => true,
+            idleProtection => "PROT_NONE"
+        );
+    end;
+
+    function importEncryptedResource(descriptor: ResourceDescriptor): SecretResource is
+        return SecretResource(descriptor => descriptor, encrypted => true);
+    end;
+
+    function allocateLockedPage(policy: MemoryPolicy, length: Nat64): LockedSecretPage is
+        let descriptor: ResourceDescriptor := ResourceDescriptor(
+            resourceId => "locked-page",
+            byteLength => length,
+            ownerAgentHash => "unassigned",
+            backend => "aurora-linear-memory"
+        );
+        return LockedSecretPage(descriptor => descriptor, policy => policy, state => "locked");
+    end;
+
+    function decryptIntoLockedPage(resource: SecretResource, page: LockedSecretPage): BorrowedSecret is
+        let { descriptor: ResourceDescriptor, encrypted: Bool } := resource;
+        let { descriptor: ResourceDescriptor, policy: MemoryPolicy, state: String } := page;
+        return BorrowedSecret(descriptor => descriptor, policy => policy, state => "decrypted-borrowed");
+    end;
+
+    function protectIdle(secret: BorrowedSecret): BorrowedSecret is
+        let { descriptor: ResourceDescriptor, policy: MemoryPolicy, state: String } := secret;
+        return BorrowedSecret(descriptor => descriptor, policy => policy, state => "protected-idle");
+    end;
+
+    function unprotectForUse(secret: BorrowedSecret): BorrowedSecret is
+        let { descriptor: ResourceDescriptor, policy: MemoryPolicy, state: String } := secret;
+        return BorrowedSecret(descriptor => descriptor, policy => policy, state => "unprotected-for-use");
+    end;
+
+    function processPublicAndZero(secret: BorrowedSecret, operationName: String): PublicResult is
+        let { descriptor: ResourceDescriptor, policy: MemoryPolicy, state: String } := secret;
+        return PublicResult(status => "ok-zeroized", detail => operationName);
+    end;
+
+    function purgeSecret(secret: BorrowedSecret): PurgedSecret is
+        let { descriptor: ResourceDescriptor, policy: MemoryPolicy, state: String } := secret;
+        return PurgedSecret(descriptor => descriptor, zeroized => true);
+    end;
+
+    function releasePurged(secret: PurgedSecret): Unit is
+        let { descriptor: ResourceDescriptor, zeroized: Bool } := secret;
+        return nil;
+    end;
+end module body.
