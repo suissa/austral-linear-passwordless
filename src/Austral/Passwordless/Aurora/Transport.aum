@@ -1,0 +1,40 @@
+import Austral.Passwordless.Aurora.Identity (
+    AgentManifest,
+    Attestation,
+    EncryptedSecretGrant
+);
+
+module body Austral.Passwordless.Aurora.Transport is
+    record PendingRequest: Linear is
+        replyTo: ReplyInbox;
+        manifest: AgentManifest;
+        attestation: Attestation;
+    end;
+
+    record ManagerReply: Linear is
+        replyTo: ReplyInbox;
+        grant: EncryptedSecretGrant;
+    end;
+
+    function identitySubject(): Subject is
+        return Subject(name => "identity.request");
+    end;
+
+    function buildRequest(replyTo: ReplyInbox, manifest: AgentManifest, attestation: Attestation): PendingRequest is
+        return PendingRequest(replyTo => replyTo, manifest => manifest, attestation => attestation);
+    end;
+
+    function publishRequest(request: PendingRequest): IdentityRequest is
+        let { replyTo: ReplyInbox, manifest: AgentManifest, attestation: Attestation } := request;
+        return IdentityRequest(subject => identitySubject(), replyTo => replyTo, manifest => manifest, attestation => attestation);
+    end;
+
+    function encryptedReply(replyTo: ReplyInbox, grant: EncryptedSecretGrant): ManagerReply is
+        return ManagerReply(replyTo => replyTo, grant => grant);
+    end;
+
+    function consumeReply(reply: ManagerReply): EncryptedSecretGrant is
+        let { replyTo: ReplyInbox, grant: EncryptedSecretGrant } := reply;
+        return grant;
+    end;
+end module body.

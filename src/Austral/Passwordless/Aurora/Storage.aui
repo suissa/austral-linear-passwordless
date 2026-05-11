@@ -1,0 +1,38 @@
+import Austral.Passwordless.Aurora.Memory (
+    BorrowedSecret,
+    PurgedSecret,
+    PublicResult
+);
+
+module Austral.Passwordless.Aurora.Storage is
+    """
+    Badger-style local storage boundary for Aurora Zeroize.
+
+    The database key is accepted only as a linear borrowed secret. Mounting the
+    database consumes the secret and returns an opened public handle plus a
+    purged-key proof.
+    """
+
+    record BadgerOptions: Free is
+        path: String;
+        chmod: String;
+        encryption: String;
+        localhostOnly: Bool;
+    end;
+
+    record OpenedBadger: Free is
+        path: String;
+        encrypted: Bool;
+        permissions: String;
+    end;
+
+    type MountSession: Linear;
+
+    function secureOptions(path: String): BadgerOptions;
+    function mountWithSecret(options: BadgerOptions, secret: BorrowedSecret): MountSession;
+    function finishMount(session: MountSession): PurgedSecret;
+    generic [R: Region]
+    function openedDatabase(session: &[MountSession, R]): OpenedBadger;
+    generic [R: Region]
+    function mountResult(session: &[MountSession, R]): PublicResult;
+end module.

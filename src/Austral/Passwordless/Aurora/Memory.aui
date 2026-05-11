@@ -1,0 +1,44 @@
+module Austral.Passwordless.Aurora.Memory is
+    """
+    Aurora Zeroize memory contract.
+
+    The BEAM/Gleam side may hold only opaque resource references. Secret bytes
+    are represented as linear external buffers and must be consumed by an
+    explicit purge path. Public data is kept separate from secret handles.
+    """
+
+    record PublicResult: Free is
+        status: String;
+        detail: String;
+    end;
+
+    record MemoryPolicy: Free is
+        maxBytes: Nat64;
+        requireMlock: Bool;
+        requireNoSwap: Bool;
+        requireVolatileZero: Bool;
+        idleProtection: String;
+    end;
+
+    record ResourceDescriptor: Free is
+        resourceId: String;
+        byteLength: Nat64;
+        ownerAgentHash: String;
+        backend: String;
+    end;
+
+    type LockedSecretPage: Linear;
+    type SecretResource: Linear;
+    type BorrowedSecret: Linear;
+    type PurgedSecret: Linear;
+
+    function strictPolicy(maxBytes: Nat64): MemoryPolicy;
+    function importEncryptedResource(descriptor: ResourceDescriptor): SecretResource;
+    function allocateLockedPage(policy: MemoryPolicy, length: Nat64): LockedSecretPage;
+    function decryptIntoLockedPage(resource: SecretResource, page: LockedSecretPage): BorrowedSecret;
+    function protectIdle(secret: BorrowedSecret): BorrowedSecret;
+    function unprotectForUse(secret: BorrowedSecret): BorrowedSecret;
+    function processPublicAndZero(secret: BorrowedSecret, operationName: String): PublicResult;
+    function purgeSecret(secret: BorrowedSecret): PurgedSecret;
+    function releasePurged(secret: PurgedSecret): Unit;
+end module.

@@ -1,0 +1,102 @@
+module body Austral.Passwordless.WebAuthn.Core is
+    record Challenge: Linear is
+        bytesBase64Url: String;
+    end;
+
+    record RegistrationCeremony: Linear is
+        challenge: String;
+        rp: RelyingParty;
+        user: UserIdentity;
+    end;
+
+    record AuthenticationCeremony: Linear is
+        challenge: String;
+        rp: RelyingParty;
+        descriptor: CredentialDescriptor;
+    end;
+
+    function newChallenge(bytesBase64Url: String): Challenge is
+        return Challenge(bytesBase64Url => bytesBase64Url);
+    end;
+
+    function exposeChallenge(challenge: Challenge): String is
+        let { bytesBase64Url: String } := challenge;
+        return bytesBase64Url;
+    end;
+
+    function beginRegistration(challenge: Challenge, rp: RelyingParty, user: UserIdentity): RegistrationCeremony is
+        let challengeText: String := exposeChallenge(challenge);
+        return RegistrationCeremony(challenge => challengeText, rp => rp, user => user);
+    end;
+
+    generic [R: Region]
+    function registrationOptions(ceremony: &[RegistrationCeremony, R]): PublicKeyCredentialCreationOptions is
+        let { challenge: String, rp: RelyingParty, user: UserIdentity } := ceremony;
+        return PublicKeyCredentialCreationOptions(
+            challenge => challenge,
+            relyingPartyId => rp.id,
+            relyingPartyName => rp.name,
+            userId => user.id,
+            userName => user.name,
+            userDisplayName => user.displayName,
+            timeoutMilliseconds => 60000,
+            attestation => "none",
+            authenticatorSelection => "platform-or-cross-platform"
+        );
+    end;
+
+    function finishRegistration(ceremony: RegistrationCeremony, response: RegistrationClientResponse): VerificationResult is
+        let { challenge: String, rp: RelyingParty, user: UserIdentity } := ceremony;
+        if response.clientDataJson = challenge then
+            return Accepted(credential => StoredCredential(
+                credentialId => response.credentialId,
+                publicKeyCose => response.attestationObject,
+                signCount => 0,
+                userId => user.id
+            ));
+        else
+            return Rejected(reason => "registration challenge mismatch or invalid origin");
+        end if;
+    end;
+
+    function cancelRegistration(ceremony: RegistrationCeremony): Unit is
+        let { challenge: String, rp: RelyingParty, user: UserIdentity } := ceremony;
+        return nil;
+    end;
+
+    function beginAuthentication(challenge: Challenge, rp: RelyingParty, descriptor: CredentialDescriptor): AuthenticationCeremony is
+        let challengeText: String := exposeChallenge(challenge);
+        return AuthenticationCeremony(challenge => challengeText, rp => rp, descriptor => descriptor);
+    end;
+
+    generic [R: Region]
+    function authenticationOptions(ceremony: &[AuthenticationCeremony, R]): PublicKeyCredentialRequestOptions is
+        let { challenge: String, rp: RelyingParty, descriptor: CredentialDescriptor } := ceremony;
+        return PublicKeyCredentialRequestOptions(
+            challenge => challenge,
+            relyingPartyId => rp.id,
+            timeoutMilliseconds => 60000,
+            allowCredentialId => descriptor.id,
+            userVerification => "preferred"
+        );
+    end;
+
+    function finishAuthentication(ceremony: AuthenticationCeremony, credential: StoredCredential, response: AuthenticationClientResponse): VerificationResult is
+        let { challenge: String, rp: RelyingParty, descriptor: CredentialDescriptor } := ceremony;
+        if response.clientDataJson = challenge then
+            return Accepted(credential => StoredCredential(
+                credentialId => credential.credentialId,
+                publicKeyCose => credential.publicKeyCose,
+                signCount => credential.signCount + 1,
+                userId => credential.userId
+            ));
+        else
+            return Rejected(reason => "authentication challenge mismatch or invalid signature");
+        end if;
+    end;
+
+    function cancelAuthentication(ceremony: AuthenticationCeremony): Unit is
+        let { challenge: String, rp: RelyingParty, descriptor: CredentialDescriptor } := ceremony;
+        return nil;
+    end;
+end module body.
