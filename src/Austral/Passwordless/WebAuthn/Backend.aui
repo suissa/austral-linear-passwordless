@@ -1,0 +1,49 @@
+import Austral.Passwordless.WebAuthn.Core (
+    RelyingParty,
+    UserIdentity,
+    CredentialDescriptor,
+    RegistrationClientResponse,
+    AuthenticationClientResponse,
+    StoredCredential,
+    VerificationResult,
+    PublicKeyCredentialCreationOptions,
+    PublicKeyCredentialRequestOptions,
+    Challenge,
+    RegistrationCeremony,
+    AuthenticationCeremony
+);
+
+module Austral.Passwordless.WebAuthn.Backend is
+    """
+    Backend-side WebAuthn workflow.
+
+    ChallengeEntropy is linear to model single-owner access to cryptographic
+    randomness. Pending ceremonies are linear to prevent replaying or dropping
+    a challenge without an explicit cancellation path.
+    """
+
+    type ChallengeEntropy: Linear;
+
+    record RegistrationStart: Linear is
+        entropy: ChallengeEntropy;
+        ceremony: RegistrationCeremony;
+        options: PublicKeyCredentialCreationOptions;
+    end;
+
+    record AuthenticationStart: Linear is
+        entropy: ChallengeEntropy;
+        ceremony: AuthenticationCeremony;
+        options: PublicKeyCredentialRequestOptions;
+    end;
+
+    function newEntropy(seedBase64Url: String): ChallengeEntropy;
+    function releaseEntropy(entropy: ChallengeEntropy): Unit;
+
+    function issueRegistration(entropy: ChallengeEntropy, rp: RelyingParty, user: UserIdentity): RegistrationStart;
+    function completeRegistration(start: RegistrationStart, response: RegistrationClientResponse): VerificationResult;
+    function abandonRegistration(start: RegistrationStart): ChallengeEntropy;
+
+    function issueAuthentication(entropy: ChallengeEntropy, rp: RelyingParty, descriptor: CredentialDescriptor): AuthenticationStart;
+    function completeAuthentication(start: AuthenticationStart, credential: StoredCredential, response: AuthenticationClientResponse): VerificationResult;
+    function abandonAuthentication(start: AuthenticationStart): ChallengeEntropy;
+end module.

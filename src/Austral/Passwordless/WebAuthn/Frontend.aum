@@ -1,0 +1,36 @@
+import Austral.Passwordless.WebAuthn.Core (
+    PublicKeyCredentialCreationOptions,
+    PublicKeyCredentialRequestOptions,
+    RegistrationClientResponse,
+    AuthenticationClientResponse
+);
+
+module body Austral.Passwordless.WebAuthn.Frontend is
+    function renderRegistration(options: PublicKeyCredentialCreationOptions): RegistrationView is
+        let html: String := "<section data-webauthn=registration><h1>Criar passkey</h1><button id=webauthn-register>Cadastrar com WebAuthn</button><form method=post id=webauthn-register-form><input name=credentialId><input name=clientDataJson><input name=attestationObject></form><script>navigator.credentials.create({publicKey:{challenge:'";
+        return RegistrationView(html => html, actionName => "webauthn.register", options => options);
+    end;
+
+    function renderAuthentication(options: PublicKeyCredentialRequestOptions): AuthenticationView is
+        let html: String := "<section data-webauthn=authentication><h1>Entrar com passkey</h1><button id=webauthn-login>Entrar</button><form method=post id=webauthn-login-form><input name=credentialId><input name=clientDataJson><input name=authenticatorData><input name=signature><input name=userHandle></form><script>navigator.credentials.get({publicKey:{challenge:'";
+        return AuthenticationView(html => html, actionName => "webauthn.authenticate", options => options);
+    end;
+
+    function registrationResponseFromPost(credentialId: String, clientDataJson: String, attestationObject: String): RegistrationClientResponse is
+        return RegistrationClientResponse(
+            credentialId => credentialId,
+            clientDataJson => clientDataJson,
+            attestationObject => attestationObject
+        );
+    end;
+
+    function authenticationResponseFromPost(credentialId: String, clientDataJson: String, authenticatorData: String, signature: String, userHandle: String): AuthenticationClientResponse is
+        return AuthenticationClientResponse(
+            credentialId => credentialId,
+            clientDataJson => clientDataJson,
+            authenticatorData => authenticatorData,
+            signature => signature,
+            userHandle => userHandle
+        );
+    end;
+end module body.

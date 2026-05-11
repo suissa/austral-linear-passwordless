@@ -1,0 +1,32 @@
+import Austral.Passwordless.WebAuthn.Core (
+    PublicKeyCredentialCreationOptions,
+    PublicKeyCredentialRequestOptions,
+    RegistrationClientResponse,
+    AuthenticationClientResponse
+);
+
+module Austral.Passwordless.WebAuthn.Frontend is
+    """
+    Frontend rendering helpers for WebAuthn.
+
+    The UI is emitted by Austral as HTML strings containing the minimum browser
+    WebAuthn calls. No JavaScript source files are required outside Austral.
+    """
+
+    record RegistrationView: Free is
+        html: String;
+        actionName: String;
+        options: PublicKeyCredentialCreationOptions;
+    end;
+
+    record AuthenticationView: Free is
+        html: String;
+        actionName: String;
+        options: PublicKeyCredentialRequestOptions;
+    end;
+
+    function renderRegistration(options: PublicKeyCredentialCreationOptions): RegistrationView;
+    function renderAuthentication(options: PublicKeyCredentialRequestOptions): AuthenticationView;
+    function registrationResponseFromPost(credentialId: String, clientDataJson: String, attestationObject: String): RegistrationClientResponse;
+    function authenticationResponseFromPost(credentialId: String, clientDataJson: String, authenticatorData: String, signature: String, userHandle: String): AuthenticationClientResponse;
+end module.
