@@ -1,0 +1,25 @@
+{
+  "name": "austral-linear-passwordless",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aurora passwordless demo with WebAuthn/passkey DPoP front and local API.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "api": "node server.mjs --api-only",
+    "front": "node server.mjs --front-only",
+    "test": "node --test tests/*.test.mjs",
+    "test:unit": "node --test tests/unit.test.mjs",
+    "test:bdd": "node --test tests/bdd.test.mjs",
+    "test:e2e": "node --test tests/e2e.test.mjs"
+  },
+  "keywords": [
+    "webauthn",
+    "passkey",
+    "dpop",
+    "austral",
+    "passwordless"
+  ],
+  "license": "MIT"
+}
